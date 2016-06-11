@@ -18,7 +18,7 @@
    * [Javascript](documentation/javascript.md)
        * [Consumer](documentation/javascript/consumer/consumer.md)
            * [Mocha / Node](documentation/javascript/mocha__node.md)
-           * [Jasmine / Karma](documentation/javascript/jasmine__karma.md)
+           * [Karma](documentation/javascript/karma.md)
            * [Flexible Matching](documentation/javascript/flexible_matching.md)
        * [Provider](documentation/javascript/provider/provider.md)
    * [Go](documentation/go.md)
@@ -33,4 +33,3 @@
 * [Contributing](contributing/README.md)
 * [Contributors](about_pact/README.md)
 * [Roadmap](roadmap/README.md)
-

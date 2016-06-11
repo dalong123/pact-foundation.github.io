@@ -3,83 +3,85 @@
 ### Mocha
 If you starting a new project, run `npm init` to get a `package.json` going.
 
-With a `package.json` file in place run `npm install --save-dev --save-exact mocha` on your terminal to install [Mocha](https://mochajs.org/). Also run `npm install --save-dev --save-exact chai` to install the [Chai.js assertion library](http://chaijs.com/).
+With a `package.json` file in place run `npm install --save-dev --save-exact mocha chai` on your terminal to install [Mocha](https://mochajs.org/) and [Chai.js assertion library](http://chaijs.com/).
 
-Once you're ready to go with mocha install the DSL by running `npm install --save-dev --save-exact pact-consumer-js-dsl`.
+Once you're ready to go with mocha install the DSL by running `npm install --save-dev --save-exact pact-js-mocha`.
 
 #### Test
-Write your Mocha test like below - written with `ES2015` syntax.
+Write your Mocha test like below:
 
 ```javascript
-import { expect } from 'chai'
-import Pact from 'pact-consumer-js-dsl'
+var expect = require('chai').expect
+// using superagent-bluebird-promise for request
+// but you can use whatever you want
+var request = require('superagent-bluebird-promise')
 
-describe("Client", () => {
-  // ProviderClient is the class you have written to make the HTTP calls to the provider
-  const client = new ProviderClient('http://localhost:1234');
+var PROVIDER_URL = 'http://localhost:1234'
 
-  var helloProvider;
+Pact('PactUI', 'Projects Provider', PROVIDER_URL, function () {
 
-  beforeEach(() => {
-    // setup your mock service
-    // your client above should be routed through to this guy
-    // during testing so expectactions can be recorded
-    helloProvider = Pact.mockService({
-      consumer: 'Hello Consumer',
-      provider: 'Hello Provider',
-      port: 1234,
-      done: (error) => {
-        expect(error).to.be.null;
-      }
-    });
-  });
+  var EXPECTED_BODY = [{
+    id: 1,
+    name: 'Project 1',
+    due: '2016-02-11T09:46:56.023Z',
+    tasks: [
+      {id: 1, name: 'Do the laundry', 'done': true},
+      {id: 2, name: 'Do the dishes', 'done': false},
+      {id: 3, name: 'Do the backyard', 'done': false},
+      {id: 4, name: 'Do nothing', 'done': false}
+    ]
+  }]
 
-  it("should say hello", (done) => {
-    const requestHeaders  = { "Accept": "application/json" };
-    const responseHeaders = { "Content-Type": "application/json" };
-    const responseBody    = { "name": "Mary" };
-    
-    // setting expectation
-    helloProvider
-      .given("an alligator with the name Mary exists")
-      .uponReceiving("a request for an alligator")
-      .withRequest("GET", "/alligators/Mary", requestHeaders)
-      .willRespondWith(200, responseHeaders, responseBody);
+  add(function (interaction) {
+    interaction
+      .given('i have a list of projects')
+      .uponReceiving('a request for projects')
+      .withRequest('get', '/projects', null, { 'Accept': 'application/json' })
+      .willRespondWith(200, { 'Content-Type': 'application/json; charset=utf-8' }, EXPECTED_BODY)
+  })
 
-    // verifying expectation
-    helloProvider.run(done, (runComplete) => {
-      expect(client.getAlligatorByName("Mary")).to.eql(new Alligator("Mary"));
-      runComplete();
-    });
-  });
-});
+  function requestProjects () {
+    return request.get(PROVIDER_URL + '/projects').set({ 'Accept': 'application/json' })
+  }
+
+  verify('single interaction', requestProjects, function (result, done) {
+    expect(JSON.parse(result)).to.eql(EXPECTED_BODY)
+    done()
+  })
+
+})
 ```
 
 #### Running it
-Before running your test you have to start the Pact Mock Service. To do so, run the below
-```bash
-bundle exec pact-mock-service -p 1234 --pact-specification-version 2.0.0 -l logs/pact.logs --pact-dir tmp/pacts
-```
-The command will:
-* Create a new folder `logs` where you can check all the interactions received by the Mock Service
-* Create a new folder `tmp` where it will store all `Pacts` successfully verified by the test
+If you noticed it, the test looks a bit different. Instead of the normal `describe` block you now have a `Pact` block with a `verify` in place of `it` test function.
 
-From there, type in `mocha` on your terminal to get your test executed. Once successful a new Pact file will be generated at `tmp/pacts/hello_consumer-hello_provider.json` that looks somewhat like this:
+Since we are using Pact JS Mocha, you have to tell Mocha to use the inteface. To do that you can create a `mocha.opts` file on your test folder and tell Mocha to use it, like this:
+
+```
+--require ./node_modules/pact-js-mocha/src/index.js
+```
+
+You will also need to create two folders:
+* `logs` where you can check all the interactions received by the Mock Service
+* `pacts` where it will store all `Pacts` successfully verified by the test
+
+From there, type in `mocha` on your terminal to get your test executed. Once successful a new Pact file will be generated at `pacts/pactui-projects_provider.json` that looks somewhat like this:
+
 ```json
 {
   "consumer": {
-    "name": "Hello Consumer"
+    "name": "PactUI"
   },
   "provider": {
-    "name": "Hello Provider"
+    "name": "Projects Provider"
   },
   "interactions": [
     {
-      "description": "a request for an alligator",
-      "provider_state": "an alligator with the name Mary exists",
+      "description": "a request for projects",
+      "provider_state": "i have a list of projects",
       "request": {
-        "method": "get",
-        "path": "/alligators/Mary",
+        "method": "GET",
+        "path": "/projects",
         "headers": {
           "Accept": "application/json"
         }
@@ -87,11 +89,37 @@ From there, type in `mocha` on your terminal to get your test executed. Once suc
       "response": {
         "status": 200,
         "headers": {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json; charset=utf-8"
         },
-        "body": {
-          "name": "Mary"
-        }
+        "body": [
+          {
+            "id": 1,
+            "name": "Project 1",
+            "due": "2016-02-11T09:46:56.023Z",
+            "tasks": [
+              {
+                "id": 1,
+                "name": "Do the laundry",
+                "done": true
+              },
+              {
+                "id": 2,
+                "name": "Do the dishes",
+                "done": false
+              },
+              {
+                "id": 3,
+                "name": "Do the backyard",
+                "done": false
+              },
+              {
+                "id": 4,
+                "name": "Do nothing",
+                "done": false
+              }
+            ]
+          }
+        ]
       }
     }
   ],

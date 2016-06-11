@@ -1,16 +1,16 @@
-# Jasmine / Karma
+# Karma
 
 ### Jasmine
 If you starting a new project, run `npm init` to get a `package.json` going.
 
 With a `package.json` file in place run `npm install --save-dev --save-exact jasmine karma karma-jasmine karma-chrome-launcher karma-cli` on your terminal to install Jasmine and Karma.
 
-Once you're ready to go with Jasmine install the DSL by running `npm install --save-dev --save-exact pact-consumer-js-dsl`.
+Once you're ready to go with Jasmine install the DSL by running `npm install --save-dev --save-exact pact-js`.
 
 #### Setup Karma
 Run `karma init`. Answer **jasmine** for *testing framework* and **no** for *use require.js*.
 
-Tell Karma about `pact-consumer-js-dsl.js` in `karma.conf.js`. In the `files: []` section add a new entry for `node_modules/pact-consumer-js-dsl/dist/pact-consumer-js-dsl.js`.
+Tell Karma about `pact.web.js` in `karma.conf.js`. In the `files: []` section add a new entry for `node_modules/pact-js/dist/pact.web.js`.
 
 Allow tests to load resources from `Pact Mock Server`. One way to do this is in the `karma.conf.js`, change `browsers: ['Chrome']` to,
 
@@ -40,49 +40,49 @@ Make sure the source and test files are included by Karma in the `karma.conf.js`
 Write your Jasmine test like below:
 ```javascript
 describe("Client", function() {
-  var client, helloProvider;
 
+  var client, pact;
+
+  // ugly but works... guess would be good to bring jasmine-beforeAll
   beforeEach(function() {
-    //ProviderClient is the class you have written to make the HTTP calls to the provider
-    client = new ProviderClient('http://localhost:1234');
-    
-    // setup your mock service
-    // your client above should be routed through to this guy
-    // during testing so expectactions can be recorded
-    helloProvider = Pact.mockService({
-      consumer: 'Hello Consumer',
-      provider: 'Hello Provider',
-      port: 1234,
-      done: function (error) {
-        expect(error).toBe(null);
-      }
-    });
+    client = example.createClient('http://localhost:1234');
+    pact = Pact({ consumer: 'Test DSL', provider: 'Projects' })
   });
 
-  it("should say hello", function(done) {
-    var requestHeaders  = { "Accept": "application/json" };
-    var responseHeaders = { "Content-Type": "application/json" };
-    var responseBody    = { "name": "Mary" };
+  describe("sayHello", function () {
+    it("should say hello", function(done) {
 
-    helloProvider
-      .given("an alligator with the name Mary exists")
-      .uponReceiving("a request for an alligator")
-      .withRequest("GET", "/alligators/Mary", requestHeaders)
-      .willRespondWith(200, responseHeaders, responseBody);
+      pact
+        .interaction()
+        .uponReceiving("a request for hello")
+        .withRequest("get", "/sayHello")
+        .willRespondWith(200, {
+          "Content-Type": "application/json"
+        }, {
+          reply: "Hello"
+        });
 
-    helloProvider.run(done, function(runComplete) {
-      expect(client.getAlligatorByName("Mary")).toEqual(new Alligator("Mary"));
-      runComplete();
+      //Run the tests
+      pact.verify(client.sayHello)
+        .then((data) => {
+          expect(JSON.parse(data)).toEqual({ reply: "Hello" });
+          done()
+        })
+        .catch((err) => {
+          done(err)
+        })
     });
   });
 });
 ```
 
 #### Running it
-Before running your test you have to start the Pact Mock Service. To do so, run the below
+Before running your tests you have to start the Pact Mock Service. To do so, run the below
+
 ```bash
 bundle exec pact-mock-service -p 1234 --pact-specification-version 2.0.0 -l logs/pact.logs --pact-dir tmp/pacts
 ```
+
 The command will:
 * Create a new folder `logs` where you can check all the interactions received by the Mock Service
 * Create a new folder `tmp` where it will store all `Pacts` successfully verified by the test
